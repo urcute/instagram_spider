@@ -1,23 +1,34 @@
 # coding:utf-8
 
 from instagram_spider import Instagram_Spider
+import MySQLdb
 
-# url = 'https://www.instagram.com/stronger917/'
-# ins = Instagram_Spider(url, url.split('/')[-2])
 
-# ins.main()
+def get_start_urls():
+    start_urls = []
+    db = MySQLdb.connect(host='localhost', user='root', passwd='root', db='inst', charset='utf8')
+    cursor = db.cursor()
+    sql = 'select * from star'
+    cursor.execute(sql)
+    db.commit()
+    stars = cursor.fetchall()
+    for star in stars:
+        start_urls.append({
+            'url': star[4],
+            'name': star[1]
+        })
+    db.close()
+    return start_urls
 
-urls = {
-    'zhaoliying': 'https://www.instagram.com/zhaoliyingofficial/',
-    'linxinru': 'https://www.instagram.com/loveruby_official/',
-    'chenqiaoen': 'https://www.instagram.com/joe_chenn/',
-    'liyifeng':'https://www.instagram.com/liyifengofficial/',
-    'yangyang':'https://www.instagram.com/yangyangfavour/',
-    'dengchao':'https://www.instagram.com/dengchaoxueba/',
-    'wangkai':'https://www.instagram.com/wangkai_kw/',
-    'jingboran':'https://www.instagram.com/xxjingboxx/'
-}
-for name in urls:
-    print name,urls[name]
-    ins = Instagram_Spider(urls[name], name)
-    ins.main()
+
+def main():
+    start_urls = get_start_urls()
+    for i in range(len(start_urls)):
+        url = start_urls[i]['url']
+        name = start_urls[i]['name']
+        print url,name
+        ins = Instagram_Spider(url, name)
+        ins.main()
+
+
+main()
