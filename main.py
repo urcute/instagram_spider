@@ -22,11 +22,12 @@ def get_start_urls():
 
 
 def main():
-    start_urls = get_start_urls()
+#     start_urls = get_start_urls()
+    start_urls = [{'url':'https://www.instagram.com/kikuchanj/','name':'jujingyi'}]
     for i in range(len(start_urls)):
         url = start_urls[i]['url']
         name = start_urls[i]['name']
-        print url,name
+        print url, name
         ins = Instagram_Spider(url, name)
         ins.main()
 

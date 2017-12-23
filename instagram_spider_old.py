@@ -1,13 +1,8 @@
-# coding=utf-8
-'''
-Created on 2017年12月23日
-
-@author: kist
-'''
+# coding:utf-8
 
 from selenium import webdriver
 from bs4 import BeautifulSoup
-import re, json
+import re
 import os
 import Queue
 import requests
@@ -49,39 +44,28 @@ class Instagram_Spider():
         while not self.mainurl_queue.empty():
             print '正在翻页扫描图片,剩余', self.mainurl_queue.qsize(), '页'
             url = self.mainurl_queue.get()
+            print '111'
             self.mainurl_queue.task_done()
+            sleep(1)
             try:
-                print '正在浏览：', url
+                print '正在浏览：',url
                 self.browser.get(url)
+                print '正在浏览：',url
                 htmlsource = self.browser.page_source
-                print htmlsource.encode('utf-8')
                 soup = BeautifulSoup(htmlsource, 'lxml')
                 urls = soup.find_all('a')
+                print htmlsource.encode('utf-8')
                 for i in range(len(urls)):
                     url = self.domain + urls[i]['href']
+                    if re.findall('/p/.*/', url):
+                        print 'imgurl', url
+                        if not self.is_exist(url):
+                            self.imgurl_queue.put(url)
+                        else:
+                            print '图片已存在，跳过~~~~~~~~~~~~'
                     if re.findall('max_id', url):
+#                         print 'mainurl', url
                         self.mainurl_queue.put(url)
-                
-                scriptss = soup.find_all('script', attrs={'type':'text/javascript'})
-                scr = ''
-                for i in range(len(scriptss)):
-                    if not (scriptss[i].string == None):
-                        if ('window._sharedData' in scriptss[i].string):
-                            scr = scriptss[i].string.replace('window._sharedData = ', '').replace(';', '').replace('\'', '')
-                json_data = json.loads(scr)
-                users = json_data['entry_data']['ProfilePage'][0]['user']['media']['nodes']
-                #todooooooooooooooooooooooooooooooooo
-                url = self.domain +'/' users[len(users)-1]['id']
-                for i in range(len(users)):
-                    imgurl = users[i]['display_src']
-                    if not self.is_exist(imgurl):
-                        page_url = self.domain + '/p/' + users[i]['code'] +'/'
-                        vote = users[i]['likes']['count']
-                        date = time.strftime('%Y-%m-%d',time.localtime(users[i]['date']))
-                        queue_data = (imgurl,page_url,vote,date)
-                        self.imgurl_queue.put(queue_data)
-                    else:
-                        print '图片已存在'
             except TimeoutException as e:
                 print '出现异常1：', e
             except WebDriverException as e:
@@ -91,15 +75,29 @@ class Instagram_Spider():
     def parse_img_url(self):
         while not self.imgurl_queue.empty():
             print '正在保存图片url,剩余', self.imgurl_queue.qsize(), '条'
-            queue_data = self.imgurl_queue.get()
-            imgurl = queue_data[0]
-            page_url = queue_data[1]
-            vote = queue_data[2]
-            date = queue_data[3]
+            url = self.imgurl_queue.get()
             try:
+                self.browser.get(url)
+                self.imgurl_queue.task_done()
+                htmlsource = self.browser.page_source
+                soup = BeautifulSoup(htmlsource, 'lxml')
+                
+                res_type = soup.find('meta', attrs={"name": "medium"})['content']
+                if(not res_type):
+                    continue
+                elif res_type == 'image':
+                    imgurl = soup.find('meta', property='og:image')['content']
+                elif res_type == 'video':
+                    imgurl = soup.find('meta', property='og:video')['content']
+                votes = soup.find('meta', property='og:description')['content'].encode('utf-8')
+                votes = votes.split('-')[0].replace('次赞', '').replace('条评论', '').split('、')
+                vote = (votes[0] + '#' + votes[1]).replace(',', '').replace(' ', '')
+                post_date = soup.find('meta', property='og:title')['content'].encode('utf-8')
+                date = post_date.split('UTC')[1].split('日')[0].replace(' ', '').replace('年', '-').replace('月', '-')
+                
                 with requests.session() as s:
                     s.keep_alive = False
-                    print '正在下载图片========', page_url,'\n',imgurl
+                    print '正在下载图片========', url
                     r = s.get(imgurl, proxies=self.proxies)
                     file_name = imgurl.split('/')[-1]
                     path = self.cur_path + file_name
@@ -110,7 +108,7 @@ class Instagram_Spider():
                 print "ceshiiiiiiiiiiiiiiiiii====上传到七牛云成功"
                 qiniu_url = 'http://ou43h7cjd.bkt.clouddn.com/' + self.name + '/' + file_name
                 sql = 'insert into instagram (name,content_url,img_url,qiniu_url,vote,date) values (%s,%s,%s,%s,%s,%s)'
-                values = (self.name, page_url, imgurl, qiniu_url, vote, date)
+                values = (self.name, url, imgurl, qiniu_url, vote, date)
                 self.cursor.execute(sql, values)
                 # 暂停插入表
                 self.db.commit()
@@ -123,7 +121,7 @@ class Instagram_Spider():
                 print '出现异常3：', e
 
     def is_exist(self, url):
-        sql = 'select * from instagram where name = ' + '"' + self.name + '" and' + ' img_url = "' + url + '"'
+        sql = 'select * from instagram where name = ' + '"' + self.name + '" and' + ' content_url = "' + url + '"'
         self.cursor.execute(sql)
         self.db.commit()
         return self.cursor.fetchall()
