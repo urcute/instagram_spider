@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # flake8: noqa
-from qiniu import Auth, put_file, etag, urlsafe_base64_encode
+from qiniu import Auth, put_file, etag, urlsafe_base64_encode, build_batch_delete, BucketManager
 import qiniu.config
 
 
@@ -14,6 +14,7 @@ class upload_qiniu():
         # 要上传的空间
         self.bucket_name = 'inst'
         # 上传到七牛后保存的文件名
+        self.bucket = BucketManager(self.q)
 
     def upload(self, key, path):
         # 生成上传 Token，可以指定过期时间等
@@ -23,6 +24,11 @@ class upload_qiniu():
         print(info)
         assert ret['key'] == key
         assert ret['hash'] == etag(path)
+    
+    def delete(self, keys):
+        ops = build_batch_delete(self.bucket_name, keys)
+        ret, info = self.bucket.batch(ops)
+        print ret, '------', info
 
 
 # uq = upload_qiniu()

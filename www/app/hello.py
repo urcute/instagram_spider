@@ -1,25 +1,19 @@
 from flask import Flask, request
 from flaskext.mysql import MySQL
 import json
-import random
+import random, time, copy
+import threading
 
-mysql = MySQL()
 app = Flask(__name__)
+mysql = MySQL()
 app.config['MYSQL_DATABASE_USER'] = 'root'
-app.config['MYSQL_DATABASE_PASSWORD'] = 'root'
+app.config['MYSQL_DATABASE_PASSWORD'] = '199358fgm'
 app.config['MYSQL_DATABASE_DB'] = 'inst'
 app.config['MYSQL_DATABASE_HOST'] = 'localhost'
 mysql.init_app(app)
-cursor = mysql.connect().cursor()
 
-_starsql = 'select en_name from star'
-cursor.execute(_starsql)
-stars = []
-for s in cursor.fetchall():
-    stars.append(s[0])
-
-cursor.execute('SELECT MAX(id) FROM instagram')
-max = cursor.fetchone()
+data_size = 20
+random_star_size = 10
 
 
 @app.route("/")
@@ -27,25 +21,42 @@ def hello():
     return "Hello World!"
 
 
-@app.route("/test/")
-def test():
-    name = request.args.get('name')
-    choose_star = random.choice(stars)
-    cursor.execute('SELECT MAX(id) FROM instagram')
-    max = cursor.fetchone()[0]
-    cursor.execute('SELECT MIN(id) FROM instagram')
-    min = cursor.fetchone()[0]
-    target_id = int((max - min) * random.random() + min)
-    sql = 'SELECT name,qiniu_url,id FROM `instagram` WHERE id = ' + str(target_id) + ' ORDER BY id LIMIT 1;'
-    cursor.execute(sql)
-    result = cursor.fetchone()
+@app.route("/wximg/")
+def wximg():
+    global data_size
+    cursor = mysql.connect().cursor()
+    random_stars = get_random_star(cursor)
+    datas = []
+    for i in range(len(random_stars)):
+        en_name = random_stars[i][0]
+        cn_name = random_stars[i][1]
+        main_page = random_stars[i][2]
+        sql = 'select name,qiniu_url from instagram where name = "' + en_name + '" order by rand() limit 2'
+        cursor.execute(sql)
+        results = cursor.fetchall()
+        for j in range(len(results)):
+            star_name = results[j][0]
+            imgurl = results[j][1]
+            url_type = 'mp4' if ('.mp4' in imgurl) else 'jpg'
+            datas.append({
+                'name': cn_name,
+                'main_page': main_page,
+                'imgurl': imgurl,
+                'type': url_type
+                })
+    random.shuffle(datas)
     j = json.dumps({
-        'data': {
-            'name': result[0],
-            'imgurl': result[1]
-        }
+        'data': datas
     })
+    cursor.close()
     return j
+
+def get_random_star(cursor):
+    global random_star_size
+    sql = 'select en_name,cn_name,main_page from star  order by rand() limit ' + str(random_star_size)
+    cursor.execute(sql)
+    results = cursor.fetchall()
+    return results
 
 
 if __name__ == '__main__':

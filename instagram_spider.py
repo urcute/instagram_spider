@@ -54,13 +54,12 @@ class Instagram_Spider():
                 print '正在浏览：', url
                 self.browser.get(url)
                 htmlsource = self.browser.page_source
-                print htmlsource.encode('utf-8')
                 soup = BeautifulSoup(htmlsource, 'lxml')
-                urls = soup.find_all('a')
-                for i in range(len(urls)):
-                    url = self.domain + urls[i]['href']
-                    if re.findall('max_id', url):
-                        self.mainurl_queue.put(url)
+#                 urls = soup.find_all('a')
+#                 for i in range(len(urls)):
+#                     url = self.domain + urls[i]['href']
+#                     if re.findall('max_id', url):
+#                         self.mainurl_queue.put(url)
                 
                 scriptss = soup.find_all('script', attrs={'type':'text/javascript'})
                 scr = ''
@@ -69,16 +68,19 @@ class Instagram_Spider():
                         if ('window._sharedData' in scriptss[i].string):
                             scr = scriptss[i].string.replace('window._sharedData = ', '').replace(';', '').replace('\'', '')
                 json_data = json.loads(scr)
+                name = json_data['entry_data']['ProfilePage'][0]['user']['username']
                 users = json_data['entry_data']['ProfilePage'][0]['user']['media']['nodes']
-                #todooooooooooooooooooooooooooooooooo
-                url = self.domain +'/' users[len(users)-1]['id']
+                if(len(users) == 0):
+                    continue
+                url = self.domain + '/' + name + '/?max_id=' + users[len(users) - 1]['id']
+                self.mainurl_queue.put(url)
                 for i in range(len(users)):
                     imgurl = users[i]['display_src']
                     if not self.is_exist(imgurl):
-                        page_url = self.domain + '/p/' + users[i]['code'] +'/'
+                        page_url = self.domain + '/p/' + users[i]['code'] + '/'
                         vote = users[i]['likes']['count']
-                        date = time.strftime('%Y-%m-%d',time.localtime(users[i]['date']))
-                        queue_data = (imgurl,page_url,vote,date)
+                        date = time.strftime('%Y-%m-%d', time.localtime(users[i]['date']))
+                        queue_data = (imgurl, page_url, vote, date)
                         self.imgurl_queue.put(queue_data)
                     else:
                         print '图片已存在'
@@ -99,20 +101,19 @@ class Instagram_Spider():
             try:
                 with requests.session() as s:
                     s.keep_alive = False
-                    print '正在下载图片========', page_url,'\n',imgurl
+                    print '正在下载图片========', page_url, '\n', imgurl
                     r = s.get(imgurl, proxies=self.proxies)
                     file_name = imgurl.split('/')[-1]
                     path = self.cur_path + file_name
                     with open(path, 'wb') as f:
                         f.write(r.content)
                 # 上传图片到七牛云 暂停上传
-                # self.up.upload(self.name + '/' + file_name, path)
-                print "ceshiiiiiiiiiiiiiiiiii====上传到七牛云成功"
+                self.up.upload(self.name + '/' + file_name, path)
+                print "上传到七牛云成功"
                 qiniu_url = 'http://ou43h7cjd.bkt.clouddn.com/' + self.name + '/' + file_name
                 sql = 'insert into instagram (name,content_url,img_url,qiniu_url,vote,date) values (%s,%s,%s,%s,%s,%s)'
                 values = (self.name, page_url, imgurl, qiniu_url, vote, date)
                 self.cursor.execute(sql, values)
-                # 暂停插入表
                 self.db.commit()
                 print "====插入数据库成功，七牛云url:", qiniu_url
             except TimeoutException as e:

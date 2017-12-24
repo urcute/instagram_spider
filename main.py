@@ -13,17 +13,18 @@ def get_start_urls():
     db.commit()
     stars = cursor.fetchall()
     for star in stars:
-        start_urls.append({
-            'url': star[4],
-            'name': star[1]
-        })
+#         if star[0] > 41:
+            start_urls.append({
+                'url': star[4],
+                'name': star[1]
+            })
     db.close()
     return start_urls
 
 
 def main():
-#     start_urls = get_start_urls()
-    start_urls = [{'url':'https://www.instagram.com/kikuchanj/','name':'jujingyi'}]
+    start_urls = get_start_urls()
+#     start_urls = [{'url':'https://www.instagram.com/kikuchanj/','name':'jujingyi'}]
     for i in range(len(start_urls)):
         url = start_urls[i]['url']
         name = start_urls[i]['name']
