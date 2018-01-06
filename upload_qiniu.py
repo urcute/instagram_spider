@@ -29,7 +29,11 @@ class upload_qiniu():
         ops = build_batch_delete(self.bucket_name, keys)
         ret, info = self.bucket.batch(ops)
         print ret, '------', info
-
+    
+    def uploadOnline(self,key,url):
+        ret, info = self.bucket.fetch(url, self.bucket_name, key)
+        print(info)
+        assert ret['key'] == key
 
 # uq = upload_qiniu()
 # uq.upload('t.py', 'main.py')

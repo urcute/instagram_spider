@@ -62,17 +62,19 @@ class Instagram_Spider():
 #                         self.mainurl_queue.put(url)
                 
                 scriptss = soup.find_all('script', attrs={'type':'text/javascript'})
-                scr = ''
+                json_str = ''
                 for i in range(len(scriptss)):
                     if not (scriptss[i].string == None):
                         if ('window._sharedData' in scriptss[i].string):
-                            scr = scriptss[i].string.replace('window._sharedData = ', '').replace(';', '').replace('\'', '')
-                json_data = json.loads(scr)
+                            json_str = scriptss[i].string.replace('window._sharedData = ', '').replace(';', '').replace('\'', '')
+                json_data = json.loads(json_str)
                 name = json_data['entry_data']['ProfilePage'][0]['user']['username']
                 users = json_data['entry_data']['ProfilePage'][0]['user']['media']['nodes']
                 if(len(users) == 0):
                     continue
                 url = self.domain + '/' + name + '/?max_id=' + users[len(users) - 1]['id']
+                avatar_url = json_data['entry_data']['ProfilePage'][0]['user']['profile_pic_url_hd']
+                self.save_avatar(avatar_url)
                 self.mainurl_queue.put(url)
                 for i in range(len(users)):
                     imgurl = users[i]['display_src']
@@ -123,6 +125,31 @@ class Instagram_Spider():
             except Exception as e:
                 print '出现异常3：', e
 
+    def save_avatar(self,url):
+        sql = 'select avatar_url from star where en_name = %s'
+        values = (self.name)
+        self.cursor.execute(sql,values)
+        self.db.commit()
+        avatar_url = self.cursor.fetchone()
+        if avatar_url[0] == url:
+            return
+        with requests.session() as s:
+            s.keep_alive = False
+            print '正在下载头像========', url
+            r = s.get(url, proxies=self.proxies)
+            file_name = url.split('/')[-1]
+            path = self.cur_path + file_name
+            with open(path, 'wb') as f:
+                f.write(r.content)
+        # 上传图片到七牛云 暂停上传
+        self.up.upload(self.name + '/' + file_name, path)
+        print "上传到七牛云成功"
+        qiniu_url = 'http://ou43h7cjd.bkt.clouddn.com/' + self.name + '/' + file_name
+        sql_update = 'update star set avatar_url = %s , qiniu_avatar_url = %s where en_name = %s'
+        values_update = (url,qiniu_url,self.name)
+        self.cursor.execute(sql_update, values_update)
+        self.db.commit()
+        
     def is_exist(self, url):
         sql = 'select * from instagram where name = ' + '"' + self.name + '" and' + ' img_url = "' + url + '"'
         self.cursor.execute(sql)

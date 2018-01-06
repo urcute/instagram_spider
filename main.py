@@ -12,6 +12,7 @@ def get_start_urls():
     cursor.execute(sql)
     db.commit()
     stars = cursor.fetchall()
+    print stars
     for star in stars:
 #         if star[0] > 41:
             start_urls.append({
@@ -34,3 +35,4 @@ def main():
 
 
 main()
+

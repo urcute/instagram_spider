@@ -1,7 +1,9 @@
 eclipse.preferences.version=1
+encoding//utils/clear_duplication.py=utf-8
+encoding//utils/test.py=utf-8
+encoding//utils/ttt.py=utf-8
 encoding/instagram_spider.py=utf-8
 encoding/instagram_spider_old.py=utf-8
 encoding/main.py=utf-8
 encoding/spider.py=utf-8
-encoding/test.py=utf-8
 encoding/upload_qiniu.py=utf-8

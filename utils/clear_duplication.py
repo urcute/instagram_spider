@@ -5,7 +5,7 @@ from bs4 import BeautifulSoup
 import MySQLdb, re,json,time
 from qiniu import Auth
 from qiniu import BucketManager
-
+import requests
 
 
 from selenium import webdriver
@@ -22,20 +22,28 @@ bucket = BucketManager(q)
 bucket_name = 'inst'
 
 
-db = MySQLdb.connect(host='localhost', user='root', passwd='root', db='inst', charset='utf8')
+db = MySQLdb.connect(host='101.200.42.84', user='root', passwd='199358fgm', db='inst', charset='utf8')
 cursor = db.cursor()
-sql = "select id , qiniu_url from instagram where date like '%年%'"
+sql = "select id , qiniu_url from instagram"
 cursor.execute(sql)
 db.commit()
 results =  cursor.fetchall()
 for i in range(len(results)):
     res = results[i]
-    key = res[1].split('http://ou43h7cjd.bkt.clouddn.com/')[1]
-    ret, info = bucket.delete(bucket_name, key)
-    print(info)
-    sql1 = "delete from instagram where id = " + str(res[0])
-    cursor.execute(sql1)
-    db.commit()
+    url = res[1]
+    print url
+    with requests.Session() as s:
+        if s.get(url).status_code == 404:
+            sql1 = "delete from instagram where id = " + str(res[0])
+            cursor.execute(sql1)
+            db.commit()
+            print '======delete======'
+#     key = res[1].split('http://ou43h7cjd.bkt.clouddn.com/')[1]
+#     ret, info = bucket.delete(bucket_name, key)
+#     print(info)
+#     sql1 = "delete from instagram where id = " + str(res[0])
+#     cursor.execute(sql1)
+#     db.commit()
      
     
     
