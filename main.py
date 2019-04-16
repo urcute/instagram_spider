@@ -1,5 +1,6 @@
 # coding:utf-8
 
+
 from instagram_spider import Instagram_Spider
 import MySQLdb
 
